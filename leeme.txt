@@ -19,5 +19,7 @@
 
 2) Cómo Ejecutar:
 
-    - Ejecutar el servidor con el comando './client_udp'
+    - Ejecutar el servidor con el comando './client_udp' en el terminal.
+        - Informe Argumentos ej. Hostname: './client_udp www.google.com'.
+        - Informe Argumentos ej. IP: './client_udp 8.8.8.8'.
 

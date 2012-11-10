@@ -30,9 +30,10 @@ char *leer(){
     char aux[1024];
     char *ip='\0';
     char *tmp,*tmp1;
-    int lon;
+    int  lon;
     FILE *resolv;
     resolv=fopen("/etc/resolv.conf","r");
+
     if(resolv==NULL){
         printf("Error abriendo resolv.config\n");
     }
@@ -76,14 +77,14 @@ int main(int argc, char *argv[]){
     struct timeval      tv;     // Usado para el 'timeout'
     fd_set              rfds;   // Usado por el 'select'
     unsigned char       buffer[1024];
-    char ip[15];
-    char *aux;
-    fprintf( stdout, "Programa ejemplo que envia y recibe un datagrama...\n");
+    char                ip[15];
+    char                *aux;
+    fprintf(stdout, "Programa ejemplo que envia y recibe un datagrama...\n");
 
     strcpy(ip,leer());
 
     // Crear un socket para manejar datagramas UDP
-    sock = socket( AF_INET, SOCK_DGRAM, 0 );
+    sock = socket(AF_INET, SOCK_DGRAM, 0);
     if(sock == -1){
         perror("El socket no pudo ser creado !\n");
         exit(-1);
@@ -198,8 +199,8 @@ int main(int argc, char *argv[]){
 
 
     c = sendto( sock,                    // Socket a utilizar para el envio
-               buffer_query, offset,  // Ptr a datos y tamaÃ±o de los datos
-               0, (struct sockaddr *)&to_addr, sockaddrlen );
+                buffer_query, offset,  // Ptr a datos y tamaÃ±o de los datos
+                0, (struct sockaddr *)&to_addr, sockaddrlen );
     if(c == -1){
         perror("No se pudo enviar el datagrama por el socket !\n");
         close( sock );
