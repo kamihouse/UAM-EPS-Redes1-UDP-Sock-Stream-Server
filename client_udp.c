@@ -32,7 +32,7 @@ uint16_t aux=0;
 uint32_t offset=0;
 uint16_t nq=1;
 uint16_t flags=0x0100;
-//www.uam.es
+
 char *leer(){
     char aux[1024];
     char *ip='\0';
@@ -118,17 +118,18 @@ void mygethostbyname(char *dominio){
     aux=htons(nq);
     memcpy(buffer_query+offset,&aux,sizeof(uint16_t));
     offset+=sizeof(uint16_t);
+
+    free(name);
 }
 
 int main(int argc, char *argv[]){
     struct sockaddr_in  sock_addr, to_addr;
     socklen_t           sockaddrlen = sizeof(struct sockaddr);
-    int                 sock, c, i;
+    int                 sock, c, i,k=0,q=0,cq=0,answers=0,cont=0;
     struct timeval      tv;     // Usado para el 'timeout'
     fd_set              rfds;   // Usado por el 'select'
     unsigned char       buffer[1024];
-    char ip[15];
-    //char *aux1;
+    char ip[15], a[256], *nombre;
 
     fprintf( stdout, "--> Programa ejemplo que envia y recibe un datagrama...\n");
 
@@ -253,6 +254,7 @@ int main(int argc, char *argv[]){
         // El 'select' ha indicado que hay datos pendientes de ser recibidos
         c = recv( sock, buffer, sizeof(buffer), 0 );
 
+
         // Nota: La funcion 'recvfrom' hace lo mismo, solo que ademas tambien
         //       rellena una estructura indicando desde que direccion IP nos
         //       han enviado el datagrama, y cual es el puerto de origen.
@@ -263,9 +265,152 @@ int main(int argc, char *argv[]){
            exit(-1);
         } //endif
 
+//memcopy(&DESTINO,ORIGEN,CUANTO COPIA) ORIGEN:buffer+pos
+aux=0;
+offset=0;
+memcpy(&aux,buffer+offset,sizeof(uint16_t));
+offset=sizeof(uint16_t);
+aux=ntohs(aux);
+printf("\n\nIdentificador: 0x%02X\n\n",aux);
+
+if (aux!=id){
+	printf("\nEl identificador no coincide.\n");
+}
+
+memcpy(&aux,buffer+offset,sizeof(uint16_t));
+offset+=sizeof(uint16_t);
+aux=ntohs(aux);
+printf("\nFlags: 0x%02X\n",aux);
+
+if (aux<0x8000){
+	printf("No es una respuesta.\n");
+}
+
+memcpy(&aux,buffer+offset,sizeof(uint16_t));
+offset+=sizeof(uint16_t);
+aux=ntohs(aux);
+printf("\nPreguntas: %02X\n",aux);
+
+memcpy(&aux,buffer+offset,sizeof(uint16_t));
+offset+=sizeof(uint16_t);
+aux=ntohs(aux);
+printf("\nRespuestas: %02X\n",aux);
+answers=aux;
+
+memcpy(&aux,buffer+offset,sizeof(uint16_t));
+offset+=sizeof(uint16_t);
+aux=ntohs(aux);
+printf("\nRespuestas autoritativas: %02X\n",aux);
+
+memcpy(&aux,buffer+offset,sizeof(uint16_t));
+offset+=sizeof(uint16_t);
+aux=ntohs(aux);
+printf("\nRespuestas adicionales: %02X\n",aux);
+			//QUERIES
+printf("\nQUERIES:\n");
+i=12;
+while(buffer[i]!=00) {
+i++;
+k++;
+}
+
+nombre=malloc((k+1)*sizeof(char));
+memcpy(nombre,buffer+offset,k+1);
+offset+=k+1;
+printf("\nServidor: ");
+
+for(i=0;i<k+1;i++){
+if (nombre[i]<32){
+q=(htons(nombre[i]))/256;
+	if (cq==0){
+	cq++;
+	}
+	else if(q!=0){
+	printf(".");
+	}
 
 
-				//Leer la respuesta
+}
+else{
+printf("%c",nombre[i]);
+}
+}
+free(nombre);
+k=0;
+cq=0;
+
+memcpy(&aux,buffer+offset,sizeof(uint16_t));
+offset+=sizeof(uint16_t);//Type
+
+memcpy(&aux,buffer+offset,sizeof(uint16_t));
+offset+=sizeof(uint16_t);//Class
+offset1=offset;
+			//ANSWERS
+
+printf("\n\nANSWERS:\n");
+while(cont<answers){  		//MIENTRAS NO LLEGUE AL FINAL DEL ANSWERS
+memcpy(&aux1,buffer+offset1,sizeof(uint8_t));
+offset1+=sizeof(uint8_t);
+
+	if(aux1==192){//Si es una direccion, la leo
+		memcpy(&aux1,buffer+offset1,sizeof(uint8_t));
+		offset1=offset1+sizeof(uint8_t);
+		i=aux1;
+		while(buffer[i]!=00) {
+			i++;
+			k++;
+		}
+
+		nombre=malloc((k+1)*sizeof(char));
+		memcpy(nombre,buffer+(aux1),k+1);
+		offset+=k+1;
+		printf("Servidor: ");
+
+		for(i=0;i<k+1;i++){
+			if (nombre[i]<32){
+				q=(htons(nombre[i]))/256;
+			if (cq==0){
+				cq++;
+			}
+			else if(q!=0){
+				printf(".");
+			}
+		}
+		else
+			printf("%c",nombre[i]);
+		}
+
+		free(nombre);
+		k=0;
+		cq=0;
+
+	}
+printf("\n");
+memcpy(&aux,buffer+offset1,sizeof(uint16_t));
+offset1+=sizeof(uint16_t);//Type
+
+memcpy(&aux,buffer+offset1,sizeof(uint16_t));
+offset1+=sizeof(uint16_t);//Class
+
+memcpy(&aux,buffer+offset1,sizeof(uint32_t));
+offset1+=sizeof(uint32_t);//Time to leave
+
+memcpy(&aux,buffer+offset1,sizeof(uint16_t));
+offset1+=sizeof(uint16_t);//Data length
+
+memcpy(&adrr,buffer+offset1,sizeof(uint32_t));
+offset1+=sizeof(uint32_t);//Address
+adrr=htonl(adrr);
+printf("Address: %02X",adrr);
+printf("\n\n");
+
+cont++;
+}
+
+
+
+
+
 
 
 
