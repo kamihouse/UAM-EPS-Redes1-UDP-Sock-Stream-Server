@@ -57,23 +57,131 @@ char *leer(){
     return ip;
 }
 
-char * nameHost(char *host1){
+char *nameHost(char *host1){
     char delimit[] = ".";
-    char *token;
+    char *token=NULL;
     char *buf=NULL;
-    int length;
-    buf = (char*) malloc (150*sizeof(char));
+    int length=0;
+    buf = (char*) malloc (250*sizeof(char));
 
     token = strtok(host1, delimit);
 
     while (token != NULL) {
         length = strlen(token);
-        buf[strlen(buf)]=length;
-        sprintf(buf+strlen(buf), "%s", token);
+        printf("\nBUFFER: %s length= %d token:%s\n",buf,length,token);
+        // buf[0+strlen(buf)]=length;
+        sprintf(buf+strlen(buf),"%c",(int)strlen(token));
+        printf("\nBUFFER: %s length= %d token:%s\n",buf,length,token);
+        sprintf(buf+strlen(buf), "%s",token);
+        printf("\nBUFFER: %s length= %d token:%s\n",buf,length,token);
         token = strtok(NULL, delimit);
 
+        printf("\nBUFFER: %s length= %d token:%s\n",buf,length,token);
     }
+    printf("\nBUFFER: %s length= %d token:%s\n",buf,length,token);
+    sprintf(buf+strlen(buf),"%c",0);
+    printf("\nBUFFER: %s length= %d token:%s\n",buf,length,token);
+    //strcpy(buf,buf1);
     return buf;
+}
+
+int leerdireccion(unsigned char buffer[1024], uint32_t offsetaux1, int cero){
+    int q=0,cq=0;
+    uint32_t offsetaux=0;//Declaro una variable local para recorrer el buffer
+    if(cero==1){
+        cq=1;
+    }
+    memcpy(&offsetaux, buffer+offsetaux1, sizeof(uint8_t));//Leo la posicion y la guardo en offsetaux
+
+    memcpy(&aux, buffer+offsetaux, sizeof(uint8_t));//Voy a la posicion que he leido
+    offsetaux+=sizeof(uint8_t);//Avanzo 1
+    while((aux!=0)&&(aux!=192)){//Mientras no lea un fin de url(00) o un indicador de direccion(C0=192)
+        if(aux<32){//Miro si es un numero,
+            q=htons(aux)/256;
+        if (cq==0)
+            cq++;
+        else if (q!=0)
+            printf(".");
+        } else{//o una letra
+            printf("%c",aux);
+            cq++;
+        }
+        memcpy(&aux, buffer+offsetaux, sizeof(uint8_t));//Leo el siguiente
+        offsetaux+=sizeof(uint8_t);
+    }
+
+    if (aux==192){
+        if(leerdireccion(buffer,offsetaux,1)==1){
+            offsetaux+=sizeof(uint8_t);
+            return 1;
+        }
+    }
+    if (aux==0){
+        return 1;
+    }
+    return 0;
+}
+
+void leernombre(int datalength, unsigned char buffer[1024]){
+    int cq = 0, q = 0, i = 0;
+    if (datalength != 0){
+        while(i < datalength){
+            memcpy(&aux, buffer+offset, sizeof(uint8_t));//Leo el primero para saber si es una direccion
+            if(aux==192){ //Si es una direccion, la leo
+                offset+=sizeof(uint8_t); //Avanzo el C0
+                i++;
+                leerdireccion(buffer,offset,1);
+                offset = offset+sizeof(uint8_t); //Y avanzo con offset
+            } else{
+                memcpy(&aux, buffer+offset, sizeof(uint8_t));
+                offset+=sizeof(uint8_t);//Avanzo 1
+
+                if(aux<32){ //Miro si es un numero,
+                    q = htons(aux)/256;
+                    if (cq == 0)
+                        cq++;
+                    else if(q != 0)
+                        printf(".");
+                } else{ //o una letra
+                    printf("%c", aux);
+                    cq++;
+                }
+            }
+            i++;
+        }
+    } else{
+        memcpy(&aux,buffer+offset,sizeof(uint8_t));//Leo el primero para saber si es una direccion
+        if(aux==192){//Si es una direccion, la leo
+            offset+=sizeof(uint8_t);//Avanzo el C0
+            leerdireccion(buffer,offset,0);
+            offset=offset+sizeof(uint8_t);//Y avanzo con offset
+        } else{
+            memcpy(&aux,buffer+offset,sizeof(uint8_t));
+            offset+=sizeof(uint8_t);//Avanzo 1
+
+            while ((aux!=192)&&(aux!=0)){//Mientras no encuentre otra direccion de memoria o un fin de url
+                if(aux < 32){//Miro si es un numero,
+                    q=htons(aux)/256;
+                    if (cq==0){
+                        cq++;
+                    } else if
+                        (q!=0)
+                    printf(".");
+                } else{//o una letra
+                    printf("%c",aux);
+                    cq++;
+                }
+                memcpy(&aux,buffer+offset,sizeof(uint8_t));//Leo el siguiente
+                offset+=sizeof(uint8_t);
+            }
+            if (aux==192){
+                offset+=sizeof(uint8_t);//Avanzo el C0
+                leerdireccion(buffer,offset,1);
+                offset+=sizeof(uint8_t);//Y avanzo con offset
+            }
+        }
+    }
+    return;
 }
 
 void mygethostbyname(char *dominio){
@@ -125,18 +233,22 @@ void mygethostbyname(char *dominio){
 int main(int argc, char *argv[]){
     struct sockaddr_in  sock_addr, to_addr;
     socklen_t           sockaddrlen = sizeof(struct sockaddr);
-    int                 sock, c, i,k=0,q=0,cq=0,answers=0,cont=0;
+    int                 sock = 0, c = 0, i = 0, cont = 0, answer = 0, datalength = 0, type = 0, aans = 0;
     struct timeval      tv;     // Usado para el 'timeout'
     fd_set              rfds;   // Usado por el 'select'
     unsigned char       buffer[1024];
-    char ip[15], a[256], *nombre;
+    char ip[15],a[256];
+
+    a[0] = '\0';
+    ip[0] = '\0';
+    buffer[0] = '\0';
 
     fprintf( stdout, "--> Programa ejemplo que envia y recibe un datagrama...\n");
 
     strcpy(ip,leer());
-    printf("\nServer: \t%s\n",ip);
-    printf("\nName: \t\t%s",argv[1]);
-    printf("\nAddress: \t\n");
+    //printf("\nServer: \t%s\n",ip);
+    //printf("\nName: \t\t%s",argv[1]);
+    //printf("\nAddress: \t\n");
 
     // Crear un socket para manejar datagramas UDP
     sock = socket( AF_INET, SOCK_DGRAM, 0 );
@@ -199,20 +311,24 @@ int main(int argc, char *argv[]){
     // datos de ejemplo.
     // En el caso de la practica de DNS, estos datos corresponderan
     // con una trama DNS que se explica en el guion de la practica.
+    printf("\n%s%s",argv[1],argv[2]);
 
-
-    mygethostbyname(argv[1]);
+    if ((strcmp(argv[1],"-q=mx"))==0){
+        nq=15;
+        mygethostbyname(argv[2]);
+    } else{
+        nq=1;
+        mygethostbyname(argv[1]);
+    }
     c = sendto( sock,                    // Socket a utilizar para el envio
                buffer_query, offset,  // Ptr a datos y tamaÃ±o de los datos
                0, (struct sockaddr *)&to_addr, sockaddrlen );
 
-
-    for( i=0; i<c; i++){
-         if( (i%16)==0 ) fprintf( stdout, "\n" );  // Cada 16 bytes un EOL
-         fprintf( stdout, "%02X ", buffer_query[i] );
+    for(i = 0; i < c; i++){
+        if( (i%16)==0 )
+            fprintf( stdout, "\n" );  // Cada 16 bytes un EOL
+        fprintf( stdout, "%02X ", buffer_query[i] );
     }
-
-
 
     if(c == -1){
         perror("No se pudo enviar el datagrama por el socket !\n");
@@ -249,15 +365,13 @@ int main(int argc, char *argv[]){
     if(c == 0){
         // El 'select' ha indicado que el tiempo indicado en 'tv' ha acabado
         fprintf( stdout, "Timeout expirado... Respuesta no recibida !\n");
-    }
-    else{
+    } else{
         // El 'select' ha indicado que hay datos pendientes de ser recibidos
         c = recv( sock, buffer, sizeof(buffer), 0 );
 
-
         // Nota: La funcion 'recvfrom' hace lo mismo, solo que ademas tambien
-        //       rellena una estructura indicando desde que direccion IP nos
-        //       han enviado el datagrama, y cual es el puerto de origen.
+        // rellena una estructura indicando desde que direccion IP nos
+        // han enviado el datagrama, y cual es el puerto de origen.
 
         if(c == -1){
            perror("Error al tratar de recibir un datagrama UDP !\n");
@@ -265,155 +379,172 @@ int main(int argc, char *argv[]){
            exit(-1);
         } //endif
 
-//memcopy(&DESTINO,ORIGEN,CUANTO COPIA) ORIGEN:buffer+pos
-aux=0;
-offset=0;
-memcpy(&aux,buffer+offset,sizeof(uint16_t));
-offset=sizeof(uint16_t);
-aux=ntohs(aux);
-printf("\n\nIdentificador: 0x%02X\n\n",aux);
+        //memcopy(&DESTINO,ORIGEN,CUANTO COPIA) ORIGEN:buffer+pos
+        aux = 0;
+        offset = 0;
+        memcpy(&aux, buffer+offset, sizeof(uint16_t));
+        offset = sizeof(uint16_t);
+        aux = ntohs(aux);
+        printf("\n\nServer: \t%s", ip);
+        printf("\nIdentificador: 0x%02X", aux);
 
-if (aux!=id){
-	printf("\nEl identificador no coincide.\n");
-}
+        if(aux != id){
+            printf("\nEl identificador no coincide.\n");
+        }
 
-memcpy(&aux,buffer+offset,sizeof(uint16_t));
-offset+=sizeof(uint16_t);
-aux=ntohs(aux);
-printf("\nFlags: 0x%02X\n",aux);
+        memcpy(&aux, buffer+offset, sizeof(uint16_t));
+        offset+=sizeof(uint16_t);
+        aux = ntohs(aux);
+        printf("\nFlags: 0x%02X",aux);
 
-if (aux<0x8000){
-	printf("No es una respuesta.\n");
-}
+        if(aux < 0x8000){
+            printf("\nNo es una respuesta.\n");
+        }
+        if(aux == 0x8183){
+            printf("\nNombre no valido\n");
+            close(sock);
+            exit(0);
+        }
+        if(aux == 0x8182){
+            printf("\nServer failure\n");
+        }
+        if(aux == 8181){
+            printf("\nFORMAT ERROR\n");
+        }
 
-memcpy(&aux,buffer+offset,sizeof(uint16_t));
-offset+=sizeof(uint16_t);
-aux=ntohs(aux);
-printf("\nPreguntas: %02X\n",aux);
+        memcpy(&aux,buffer+offset,sizeof(uint16_t));
+        offset+=sizeof(uint16_t);
+        aux = ntohs(aux);
+        printf("\nPreguntas: %02X",aux);
 
-memcpy(&aux,buffer+offset,sizeof(uint16_t));
-offset+=sizeof(uint16_t);
-aux=ntohs(aux);
-printf("\nRespuestas: %02X\n",aux);
-answers=aux;
+        memcpy(&aux,buffer+offset,sizeof(uint16_t));
+        offset+=sizeof(uint16_t);
+        aux = ntohs(aux);
+        answer = aux;
+        printf("\nRespuestas: %d",answer);
 
-memcpy(&aux,buffer+offset,sizeof(uint16_t));
-offset+=sizeof(uint16_t);
-aux=ntohs(aux);
-printf("\nRespuestas autoritativas: %02X\n",aux);
+        memcpy(&aux,buffer+offset,sizeof(uint16_t));
+        offset+=sizeof(uint16_t);
+        aux = ntohs(aux);
+        printf("\nRespuestas autoritativas: %02X",aux);
 
-memcpy(&aux,buffer+offset,sizeof(uint16_t));
-offset+=sizeof(uint16_t);
-aux=ntohs(aux);
-printf("\nRespuestas adicionales: %02X\n",aux);
-			//QUERIES
-printf("\nQUERIES:\n");
-i=12;
-while(buffer[i]!=00) {
-i++;
-k++;
-}
+        memcpy(&aux,buffer+offset,sizeof(uint16_t));
+        offset+=sizeof(uint16_t);
+        aux = ntohs(aux);
+        aans = aux;
+        printf("\nRespuestas adicionales: %02X",aux);
 
-nombre=malloc((k+1)*sizeof(char));
-memcpy(nombre,buffer+offset,k+1);
-offset+=k+1;
-printf("\nServidor: ");
+        //QUERIES
+        printf("\nQUERIES:\n");
+        leernombre(0,buffer);
 
-for(i=0;i<k+1;i++){
-if (nombre[i]<32){
-q=(htons(nombre[i]))/256;
-	if (cq==0){
-	cq++;
-	}
-	else if(q!=0){
-	printf(".");
-	}
+        memcpy(&aux,buffer+offset,sizeof(uint16_t));
+        offset+=sizeof(uint16_t);//Type
+        aux = ntohs(aux);
+        printf("\nType: %u",aux);
 
+        memcpy(&aux,buffer+offset,sizeof(uint16_t));
+        offset+=sizeof(uint16_t);//Class
+        aux = ntohs(aux);
+        printf("\nClass: %u",aux);
 
-}
-else{
-printf("%c",nombre[i]);
-}
-}
-free(nombre);
-k=0;
-cq=0;
+                            //ANSWERS
+        printf("\n\nANSWERS:\n");
+        cont=0;
+        while(cont < answer){  		//MIENTRAS NO LLEGUE AL FINAL DEL ANSWERS
+            leernombre(0,buffer);
 
-memcpy(&aux,buffer+offset,sizeof(uint16_t));
-offset+=sizeof(uint16_t);//Type
+            printf("\n");
+            memcpy(&aux,buffer+offset,sizeof(uint16_t));
+            offset+=sizeof(uint16_t);//Type
+            aux=ntohs(aux);
+            type=aux;
 
-memcpy(&aux,buffer+offset,sizeof(uint16_t));
-offset+=sizeof(uint16_t);//Class
-offset1=offset;
-			//ANSWERS
+            memcpy(&aux, buffer+offset, sizeof(uint16_t));
+            offset+=sizeof(uint16_t);//Class
 
-printf("\n\nANSWERS:\n");
-while(cont<answers){  		//MIENTRAS NO LLEGUE AL FINAL DEL ANSWERS
-memcpy(&aux1,buffer+offset1,sizeof(uint8_t));
-offset1+=sizeof(uint8_t);
+            memcpy(&aux, buffer+offset, sizeof(uint32_t));
+            offset+=sizeof(uint32_t);//Time to leave
 
-	if(aux1==192){//Si es una direccion, la leo
-		memcpy(&aux1,buffer+offset1,sizeof(uint8_t));
-		offset1=offset1+sizeof(uint8_t);
-		i=aux1;
-		while(buffer[i]!=00) {
-			i++;
-			k++;
-		}
+            memcpy(&aux, buffer+offset, sizeof(uint16_t));
+            offset+=sizeof(uint16_t);//Data length
+            aux = ntohs(aux);
+            datalength = aux;
+            printf("Data length: %d\n", datalength);
 
-		nombre=malloc((k+1)*sizeof(char));
-		memcpy(nombre,buffer+(aux1),k+1);
-		offset+=k+1;
-		printf("Servidor: ");
+            if (type==1){//Si nos da una IP
+                memcpy(&adrr, buffer+offset, sizeof(uint32_t));
+                offset+=sizeof(uint32_t);//Address
+                adrr = htonl(adrr);
+                uint8_t *addr = (uint8_t*)&adrr;
+                printf("Address: %u.%u.%u.%u", addr[3], addr[2], addr[1], addr[0]);
+            }
+            if(type==5){//Si nos da un nombre canonico
+                printf("Nombre canonico: ");
+                leernombre(datalength,buffer);
+            }
+            if (type==0xf){//Si es un servidor de correo
+                datalength=datalength-2;
+                memcpy(&aux,buffer+offset,sizeof(uint16_t));
+                offset+=sizeof(uint16_t);//Preference
+                aux=ntohs(aux);
+                printf("Preference: %u\n",aux);
+                printf("Mail exchange: ");
+                leernombre(datalength,buffer);
+            }
 
-		for(i=0;i<k+1;i++){
-			if (nombre[i]<32){
-				q=(htons(nombre[i]))/256;
-			if (cq==0){
-				cq++;
-			}
-			else if(q!=0){
-				printf(".");
-			}
-		}
-		else
-			printf("%c",nombre[i]);
-		}
+            printf("\n\n");
 
-		free(nombre);
-		k=0;
-		cq=0;
+            cont++;
+        }
+        cont=0;
 
-	}
-printf("\n");
-memcpy(&aux,buffer+offset1,sizeof(uint16_t));
-offset1+=sizeof(uint16_t);//Type
+        printf("\nADITIONAL ANSWERS: \n");
+        while(cont < aans){
+            leernombre(0,buffer);
 
-memcpy(&aux,buffer+offset1,sizeof(uint16_t));
-offset1+=sizeof(uint16_t);//Class
+            printf("\n");
+            memcpy(&aux,buffer+offset,sizeof(uint16_t));
+            offset+=sizeof(uint16_t);//Type
+            aux=ntohs(aux);
+            type=aux;
 
-memcpy(&aux,buffer+offset1,sizeof(uint32_t));
-offset1+=sizeof(uint32_t);//Time to leave
+            memcpy(&aux,buffer+offset,sizeof(uint16_t));
+            offset+=sizeof(uint16_t);//Class
 
-memcpy(&aux,buffer+offset1,sizeof(uint16_t));
-offset1+=sizeof(uint16_t);//Data length
+            memcpy(&aux,buffer+offset,sizeof(uint32_t));
+            offset+=sizeof(uint32_t);//Time to leave
 
-memcpy(&adrr,buffer+offset1,sizeof(uint32_t));
-offset1+=sizeof(uint32_t);//Address
-adrr=htonl(adrr);
-printf("Address: %02X",adrr);
-printf("\n\n");
+            memcpy(&aux,buffer+offset,sizeof(uint16_t));
+            offset+=sizeof(uint16_t);//Data length
+            aux=ntohs(aux);
+            datalength=aux;
+            printf("Data length: %d\n", datalength);
 
-cont++;
-}
+            if (type == 1){//Si nos da una IP
+                memcpy(&adrr,buffer+offset,sizeof(uint32_t));
+                offset+=sizeof(uint32_t);//Address
+                adrr = htonl(adrr);
+                uint8_t *addr=(uint8_t*)&adrr;
+                printf("Address: %u.%u.%u.%u",addr[3],addr[2],addr[1],addr[0]);
+            }
+            if(type == 5){//Si nos da un nombre canonico
+                printf("Nombre canonico: ");
+                leernombre(datalength,buffer);
+            }
+            if (type == 0xf){//Si es un servidor de correo
+                datalength=datalength-2;
+                memcpy(&aux,buffer+offset,sizeof(uint16_t));
+                offset+=sizeof(uint16_t); //Preference
+                aux=ntohs(aux);
+                printf("Preference: %u\n",aux);
+                printf("Mail exchange: ");
+                leernombre(datalength,buffer);
+            }
+            printf("\n\n");
 
-
-
-
-
-
-
-
+            cont++;
+        }
 
         // Mostrar los datos recibidos. Si hemos mandado basura al DNS
         // nos contestara con una trama indicando que hay un error en la
@@ -423,11 +554,11 @@ cont++;
            if( (i%16)==0 ) fprintf( stdout, "\n" );  // Cada 16 bytes un EOL
            fprintf( stdout, "%02X ", buffer[i] );
         } //endfor
-    } //endif
+    } //end else
     printf("\n");
-	//free(name); //Liberar el nombre 3www3uam etc..
+    //free(name); //Liberar el nombre 3www3uam etc..
+
     // Cerrar el socket y volver
     close( sock );
-
     return 0;
 }
