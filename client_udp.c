@@ -26,16 +26,20 @@
 
 #include <string.h>  // Usado por 'strlen'
 
-uint16_t id = 0;
+uint16_t id = 0x8521;
+uint8_t buffer_query[1000]={0};
+uint16_t aux=0;
+uint32_t offset=0;
+uint16_t nq=1;
+uint16_t flags=0x0100;
 //www.uam.es
 char *leer(){
     char aux[1024];
     char *ip='\0';
     char *tmp,*tmp1;
-    int  lon;
+    int lon;
     FILE *resolv;
     resolv=fopen("/etc/resolv.conf","r");
-
     if(resolv==NULL){
         printf("Error abriendo resolv.config\n");
     }
@@ -53,24 +57,68 @@ char *leer(){
     return ip;
 }
 
-void nameHost(char *host1){
+char * nameHost(char *host1){
     char delimit[] = ".";
     char *token;
-    char buf[50];
+    char *buf=NULL;
     int length;
+    buf = (char*) malloc (150*sizeof(char));
 
     token = strtok(host1, delimit);
-    buf[0] = '\0';
 
     while (token != NULL) {
         length = strlen(token);
-        sprintf(buf+strlen(buf), "%d", length);
+        buf[strlen(buf)]=length;
         sprintf(buf+strlen(buf), "%s", token);
         token = strtok(NULL, delimit);
+
     }
-    printf("%s", buf);
+    return buf;
 }
 
+void mygethostbyname(char *dominio){
+    char *name;
+    aux=htons(id);
+    memcpy(buffer_query,&aux,sizeof(uint16_t));
+    offset+=sizeof(uint16_t);
+
+    aux=htons(flags);
+    memcpy(buffer_query+offset,&aux,sizeof(uint16_t));
+    offset+=sizeof(uint16_t);
+
+    aux=htons(nq);
+    memcpy(buffer_query+offset,&aux,sizeof(uint16_t));
+    offset+=sizeof(uint16_t);
+
+    aux=0;
+    memcpy(buffer_query+offset,&aux,sizeof(uint16_t));
+    offset+=sizeof(uint16_t);
+
+    aux=0;
+    memcpy(buffer_query+offset,&aux,sizeof(uint16_t));
+    offset+=sizeof(uint16_t);
+    // respuesta autoritativa
+    aux=0;
+    memcpy(buffer_query+offset,&aux,sizeof(uint16_t));
+    offset+=sizeof(uint16_t);
+
+    // Cambiar a formato DNS el argv[1] -> www.uam.es-> 3www3uam2es0 -> name
+    name = nameHost(dominio);
+
+    memcpy(buffer_query+offset,name,strlen(name)+1);
+
+    offset+=strlen(name)+1;
+
+    //type
+    aux=htons(nq);
+    memcpy(buffer_query+offset,&aux,sizeof(uint16_t));
+    offset+=sizeof(uint16_t);
+
+    //class
+    aux=htons(nq);
+    memcpy(buffer_query+offset,&aux,sizeof(uint16_t));
+    offset+=sizeof(uint16_t);
+}
 
 int main(int argc, char *argv[]){
     struct sockaddr_in  sock_addr, to_addr;
@@ -79,14 +127,18 @@ int main(int argc, char *argv[]){
     struct timeval      tv;     // Usado para el 'timeout'
     fd_set              rfds;   // Usado por el 'select'
     unsigned char       buffer[1024];
-    char                ip[15];
-    char                *aux;
-    fprintf(stdout, "Programa ejemplo que envia y recibe un datagrama...\n");
+    char ip[15];
+    //char *aux1;
+
+    fprintf( stdout, "--> Programa ejemplo que envia y recibe un datagrama...\n");
 
     strcpy(ip,leer());
+    printf("\nServer: \t%s\n",ip);
+    printf("\nName: \t\t%s",argv[1]);
+    printf("\nAddress: \t\n");
 
     // Crear un socket para manejar datagramas UDP
-    sock = socket(AF_INET, SOCK_DGRAM, 0);
+    sock = socket( AF_INET, SOCK_DGRAM, 0 );
     if(sock == -1){
         perror("El socket no pudo ser creado !\n");
         exit(-1);
@@ -148,61 +200,19 @@ int main(int argc, char *argv[]){
     // con una trama DNS que se explica en el guion de la practica.
 
 
-
-    uint8_t buffer_query[1000]={0};
-    uint16_t aux=0;
-    uint32_t offset=0;
-    uint16_t nq=1;
-    uint16_t flags=0x0100;
-
-
-    aux=htons(id);
-    memcpy(buffer_query,&aux,sizeof(uint16_t));
-    offset+=sizeof(uint16_t);
-
-
-    aux=htons(flags);
-    memcpy(buffer_query+offset,&aux,sizeof(uint16_t));
-    offset+=sizeof(uint16_t);
-
-    aux=htons(nq);
-    memcpy(buffer_query+offset,&aux,sizeof(uint16_t));
-    offset+=sizeof(uint16_t);
-
-    aux=0;
-    memcpy(buffer_query+offset,&aux,sizeof(uint16_t));
-    offset+=sizeof(uint16_t);
-
-    aux=0;
-    memcpy(buffer_query+offset,&aux,sizeof(uint16_t));
-    offset+=sizeof(uint16_t);
-    // respuesta autoritativa
-    aux=0;
-    memcpy(buffer_query+offset,&aux,sizeof(uint16_t));
-    offset+=sizeof(uint16_t);
-
-    // Cambiar a formato DNS el argv[1] -> www.uam.es-> 3www3uam2es0 -> name
-
-    nameHost(argv[1]);
-
-
-    memcpy(buffer_query+offset,name,strlen(name)+1);
-    // --> offset+=strlen(name)+1;
-
-    //type
-    aux=htons(nq);
-    memcpy(buffer_query+offset,&aux,sizeof(uint16_t));
-    offset+=sizeof(uint16_t);
-
-    //class
-    aux=htons(nq);
-    memcpy(buffer_query+offset,&aux,sizeof(uint16_t));
-    offset+=sizeof(uint16_t);
-
-
+    mygethostbyname(argv[1]);
     c = sendto( sock,                    // Socket a utilizar para el envio
-                buffer_query, offset,  // Ptr a datos y tamaÃ±o de los datos
-                0, (struct sockaddr *)&to_addr, sockaddrlen );
+               buffer_query, offset,  // Ptr a datos y tamaÃ±o de los datos
+               0, (struct sockaddr *)&to_addr, sockaddrlen );
+
+
+    for( i=0; i<c; i++){
+         if( (i%16)==0 ) fprintf( stdout, "\n" );  // Cada 16 bytes un EOL
+         fprintf( stdout, "%02X ", buffer_query[i] );
+    }
+
+
+
     if(c == -1){
         perror("No se pudo enviar el datagrama por el socket !\n");
         close( sock );
@@ -253,17 +263,24 @@ int main(int argc, char *argv[]){
            exit(-1);
         } //endif
 
+
+
+				//Leer la respuesta
+
+
+
+
         // Mostrar los datos recibidos. Si hemos mandado basura al DNS
         // nos contestara con una trama indicando que hay un error en la
         // estructura del 'query' que le enviamos.
-        fprintf(stdout, "Datos recibidos:");
+        fprintf(stdout, "\nDatos recibidos:");                     //
         for( i=0; i<c; i++){
            if( (i%16)==0 ) fprintf( stdout, "\n" );  // Cada 16 bytes un EOL
            fprintf( stdout, "%02X ", buffer[i] );
         } //endfor
     } //endif
     printf("\n");
-
+	//free(name); //Liberar el nombre 3www3uam etc..
     // Cerrar el socket y volver
     close( sock );
 
