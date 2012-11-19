@@ -1,7 +1,15 @@
 ################################################################################
-# Makefile con auto-deteccion de dependencias: nunca querras usar otro
-# (de tipo .h; las de linkado hay que enumerarlas)
-# Ver http://www.cs.washington.edu/orgs/acm/tutorials/dev-in-unix/makefiles.html
+# UAM - EPS - Ingeniería de Tecnologías y Servicios de Telecomunicación
+# Server: client_udp.c
+# File..: makefile
+# Link..: https://github.com/kamihouse/UDP-Sock-Stream-Server
+#
+# Trabajo de practica Arquitectura de Redes I - 10/11/2012
+# Profesores..:	Pedro María Santiago del Río (pedro.santiago@uam.es)
+#		Javier Ramos (javier.ramos@uam.es)
+#
+# Alumnos.....: Thiago Pereira Rosa	(thiago.pereirarosa@estudiante.uam.es)
+#		Isaac Gonzalez Gonzalez	(isaac.gonzalez@estudiante.uam.es)
 ################################################################################
 
 # banderas de compilacion (PUEDE SER UTIL CAMBIARLAS)

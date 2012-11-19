@@ -4,11 +4,13 @@
  *      	Javier Ramos (javier.ramos@uam.es)
  *
  * File.......: client_udp.c
+ * Link.......: https://github.com/kamihouse/UDP-Sock-Stream-Server
+ *
  * Author.....: Thiago Pereira Rosa	(thiago.pereirarosa@estudiante.uam.es)
  *              Isaac Gonzalez Gonzalez	(isaac.gonzalez@estudiante.uam.es)
  *
  * Ejemplo de sockets en Linux que mandan y reciben datagramas UDP
- * Created on 10 de Novembro de 2012, 17:56
+ * Created on 6 de Novembro de 2012, 17:56
  */
 
 #include <stdio.h>
