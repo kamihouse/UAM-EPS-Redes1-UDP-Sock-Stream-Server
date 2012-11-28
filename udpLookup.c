@@ -29,9 +29,11 @@
 uint16_t id = 0x8521;
 uint8_t buffer_query[1000]={0};
 uint16_t aux=0;
-uint32_t offset=0;
+uint32_t offset=0, offsetaux, adrr=0;
 uint16_t nq=1;
 uint16_t flags=0x0100;
+uint16_t class=1;
+uint16_t queries=1;
 
 char *leer(){
     char aux[1024];
@@ -68,20 +70,12 @@ char *nameHost(char *host1){
 
     while (token != NULL) {
         length = strlen(token);
-        printf("\nBUFFER: %s length= %d token:%s\n",buf,length,token);
-        // buf[0+strlen(buf)]=length;
-        sprintf(buf+strlen(buf),"%c",(int)strlen(token));
-        printf("\nBUFFER: %s length= %d token:%s\n",buf,length,token);
-        sprintf(buf+strlen(buf), "%s",token);
-        printf("\nBUFFER: %s length= %d token:%s\n",buf,length,token);
+	sprintf(buf+strlen(buf),"%c", (int) strlen(token));
+        sprintf(buf+strlen(buf), "%s", token);
         token = strtok(NULL, delimit);
-
-        printf("\nBUFFER: %s length= %d token:%s\n",buf,length,token);
     }
-    printf("\nBUFFER: %s length= %d token:%s\n",buf,length,token);
-    sprintf(buf+strlen(buf),"%c",0);
-    printf("\nBUFFER: %s length= %d token:%s\n",buf,length,token);
-    //strcpy(buf,buf1);
+	sprintf(buf+strlen(buf),"%c",0);
+
     return buf;
 }
 
@@ -181,7 +175,7 @@ void leernombre(int datalength, unsigned char buffer[1024]){
             }
         }
     }
-    return;
+
 }
 
 void mygethostbyname(char *dominio){
@@ -213,7 +207,7 @@ void mygethostbyname(char *dominio){
     // Cambiar a formato DNS el argv[1] -> www.uam.es-> 3www3uam2es0 -> name
     name = nameHost(dominio);
 
-    memcpy(buffer_query+offset,name,strlen(name)+1);
+    memcpy(buffer_query+offset, name, strlen(name)+1);
 
     offset+=strlen(name)+1;
 
@@ -237,15 +231,15 @@ int main(int argc, char *argv[]){
     struct timeval      tv;     // Usado para el 'timeout'
     fd_set              rfds;   // Usado por el 'select'
     unsigned char       buffer[1024];
-    char ip[15],a[256];
+    char                ip[15], a[256];
 
     a[0] = '\0';
     ip[0] = '\0';
     buffer[0] = '\0';
 
-    fprintf( stdout, "--> Programa ejemplo que envia y recibe un datagrama...\n");
+    //fprintf( stdout, "--> Programa ejemplo que envia y recibe un datagrama...\n");
 
-    strcpy(ip,leer());
+    strcpy(ip, leer());
     //printf("\nServer: \t%s\n",ip);
     //printf("\nName: \t\t%s",argv[1]);
     //printf("\nAddress: \t\n");
@@ -311,7 +305,8 @@ int main(int argc, char *argv[]){
     // datos de ejemplo.
     // En el caso de la practica de DNS, estos datos corresponderan
     // con una trama DNS que se explica en el guion de la practica.
-    printf("\n%s%s",argv[1],argv[2]);
+
+    //printf("\n%s%s",argv[1],argv[2]);
 
     if ((strcmp(argv[1],"-q=mx"))==0){
         nq=15;
@@ -385,73 +380,69 @@ int main(int argc, char *argv[]){
         memcpy(&aux, buffer+offset, sizeof(uint16_t));
         offset = sizeof(uint16_t);
         aux = ntohs(aux);
-        printf("\n\nServer: \t%s", ip);
-        printf("\nIdentificador: 0x%02X", aux);
 
-        if(aux != id){
+        printf("\n\nNameserver:\t%s", ip);
+
+        if (aux!=id){
             printf("\nEl identificador no coincide.\n");
         }
 
-        memcpy(&aux, buffer+offset, sizeof(uint16_t));
+        memcpy(&aux,buffer+offset,sizeof(uint16_t));
         offset+=sizeof(uint16_t);
-        aux = ntohs(aux);
-        printf("\nFlags: 0x%02X",aux);
+        aux=ntohs(aux);
 
-        if(aux < 0x8000){
+
+        if (aux<0x8000){
             printf("\nNo es una respuesta.\n");
         }
-        if(aux == 0x8183){
-            printf("\nNombre no valido\n");
+        if (aux==0x8183){
+            printf("\nNombre no es valido.\n");
             close(sock);
             exit(0);
         }
-        if(aux == 0x8182){
-            printf("\nServer failure\n");
+        if (aux==0x8182){
+            printf("\nServer failure.\n");
         }
-        if(aux == 8181){
+        if (aux==8181){
             printf("\nFORMAT ERROR\n");
         }
 
         memcpy(&aux,buffer+offset,sizeof(uint16_t));
         offset+=sizeof(uint16_t);
         aux = ntohs(aux);
-        printf("\nPreguntas: %02X",aux);
 
         memcpy(&aux,buffer+offset,sizeof(uint16_t));
         offset+=sizeof(uint16_t);
         aux = ntohs(aux);
         answer = aux;
-        printf("\nRespuestas: %d",answer);
 
         memcpy(&aux,buffer+offset,sizeof(uint16_t));
         offset+=sizeof(uint16_t);
         aux = ntohs(aux);
-        printf("\nRespuestas autoritativas: %02X",aux);
 
         memcpy(&aux,buffer+offset,sizeof(uint16_t));
         offset+=sizeof(uint16_t);
         aux = ntohs(aux);
         aans = aux;
-        printf("\nRespuestas adicionales: %02X",aux);
 
         //QUERIES
-        printf("\nQUERIES:\n");
-        leernombre(0,buffer);
+        while (aux!=0){
+            memcpy(&aux,buffer+offset,sizeof(uint8_t));
+            offset+=sizeof(uint8_t);
+        }
 
         memcpy(&aux,buffer+offset,sizeof(uint16_t));
         offset+=sizeof(uint16_t);//Type
         aux = ntohs(aux);
-        printf("\nType: %u",aux);
 
         memcpy(&aux,buffer+offset,sizeof(uint16_t));
         offset+=sizeof(uint16_t);//Class
         aux = ntohs(aux);
-        printf("\nClass: %u",aux);
 
-                            //ANSWERS
-        printf("\n\nANSWERS:\n");
+        //ANSWERS
         cont=0;
         while(cont < answer){  		//MIENTRAS NO LLEGUE AL FINAL DEL ANSWERS
+            printf("\nName:\t");
             leernombre(0,buffer);
 
             printf("\n");
@@ -473,8 +464,7 @@ int main(int argc, char *argv[]){
             printf("Data length: %d\n", datalength);
 
             if (type==1){//Si nos da una IP
-                char addr[100];
-		memcpy(&adrr, buffer+offset, sizeof(uint32_t));
+                memcpy(&adrr, buffer+offset, sizeof(uint32_t));
                 offset+=sizeof(uint32_t);//Address
                 adrr = htonl(adrr);
                 uint8_t *addr = (uint8_t*)&adrr;
@@ -489,8 +479,8 @@ int main(int argc, char *argv[]){
                 memcpy(&aux,buffer+offset,sizeof(uint16_t));
                 offset+=sizeof(uint16_t);//Preference
                 aux=ntohs(aux);
-                printf("Preference: %u\n",aux);
-                printf("Mail exchange: ");
+
+                printf("Mail exchange:\t");
                 leernombre(datalength,buffer);
             }
 
@@ -500,66 +490,9 @@ int main(int argc, char *argv[]){
         }
         cont=0;
 
-        printf("\nADITIONAL ANSWERS: \n");
-        while(cont < aans){
-            leernombre(0,buffer);
-
-            printf("\n");
-            memcpy(&aux,buffer+offset,sizeof(uint16_t));
-            offset+=sizeof(uint16_t);//Type
-            aux=ntohs(aux);
-            type=aux;
-
-            memcpy(&aux,buffer+offset,sizeof(uint16_t));
-            offset+=sizeof(uint16_t);//Class
-
-            memcpy(&aux,buffer+offset,sizeof(uint32_t));
-            offset+=sizeof(uint32_t);//Time to leave
-
-            memcpy(&aux,buffer+offset,sizeof(uint16_t));
-            offset+=sizeof(uint16_t);//Data length
-            aux=ntohs(aux);
-            datalength=aux;
-            printf("Data length: %d\n", datalength);
-
-            if (type == 1){//Si nos da una IP
-                memcpy(&adrr,buffer+offset,sizeof(uint32_t));
-                offset+=sizeof(uint32_t);//Address
-                adrr = htonl(adrr);
-                uint8_t *addr=(uint8_t*)&adrr;
-                printf("Address: %u.%u.%u.%u",addr[3],addr[2],addr[1],addr[0]);
-            }
-            if(type == 5){//Si nos da un nombre canonico
-                printf("Nombre canonico: ");
-                leernombre(datalength,buffer);
-            }
-            if (type == 0xf){//Si es un servidor de correo
-                datalength=datalength-2;
-                memcpy(&aux,buffer+offset,sizeof(uint16_t));
-                offset+=sizeof(uint16_t); //Preference
-                aux=ntohs(aux);
-                printf("Preference: %u\n",aux);
-                printf("Mail exchange: ");
-                leernombre(datalength,buffer);
-            }
-            printf("\n\n");
-
-            cont++;
-        }
-
-        // Mostrar los datos recibidos. Si hemos mandado basura al DNS
-        // nos contestara con una trama indicando que hay un error en la
-        // estructura del 'query' que le enviamos.
-        fprintf(stdout, "\nDatos recibidos:");                     //
-        for( i=0; i<c; i++){
-           if( (i%16)==0 ) fprintf( stdout, "\n" );  // Cada 16 bytes un EOL
-           fprintf( stdout, "%02X ", buffer[i] );
-        } //endfor
-    } //end else
+    }
     printf("\n");
-    //free(name); //Liberar el nombre 3www3uam etc..
 
-    // Cerrar el socket y volver
     close( sock );
     return 0;
 }
